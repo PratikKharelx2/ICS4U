@@ -1,9 +1,9 @@
 '''
 Code written by Pratik Kharel
-for Final Project in Course: ICS4UI
+For Final Project in Course: ICS4UI
 
 Main Function of the code:
--Online talk Assistant. 
+-Online Talk Assistant. 
 -Has memory system to recognize known users. 
 -Built-in hand detection that recognizes ASL to understand input from mute/deaf users. 
 -Generates responses and does simple tasks for the user on their computer.
