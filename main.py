@@ -39,11 +39,11 @@ def respond(text):
     string = []
     current_num = text[0]
     current_count = 0
-    # clearing out all parts of the string that are below the limit.abs
+    # clearing out all parts of the string that are below the limit
     # the overall part of this code is this:
     # get an input list of [a,a,a,a,a,a,b,b,s,s,s,s,s,b,s,s,r,r,b,b,b,r,r]
     # we can see that the list has more than the needed 5 count
-    # but since they are not in a row, the letter can be remove from that part.abs
+    # but since they are not in a row, the letter can be remove from that part
     # this is to prevent some small glitches that sneak their way into the final input for the response
     # by filtering all the small particulates, we can have a clean input that the API can understand.
     for num in text:
