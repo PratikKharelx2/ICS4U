@@ -1,3 +1,17 @@
+'''
+Code written by Pratik Kharel
+For Final Project in Course: ICS4UI
+Main Function of the code:
+-Online Talk Assistant(with slightly altered ASL). 
+-Built-in hand detection that recognizes ASL to understand input from mute/deaf users. 
+-Generates responses, does simple tasks, and chats with the user.
+-Simple tasks include answering questions, keeping company, providing a shared AI experience for everyone.
+*Program is limited in terms of processing power and input limitations due to the useage of Open AI's API.
+This company has a free trial of their API which allows the code to work for a set amount of runs. 
+Getting more inputs will require the use of real-world currency which, for me, is limited.
+Future implementations will have no limit once a stable system for responses is added.*
+'''
+
 import cv2 as cv
 from hand_tracking import hand_detector
 from classification import main_func_classifier
