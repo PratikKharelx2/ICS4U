@@ -1,90 +1,98 @@
-'''
-Code written by Pratik Kharel
-For Final Project in Course: ICS4UI
+import cv2 as cv
+from hand_tracking import hand_detector
+from classification import main_func_classifier
+import numpy as np
+import math
+from itertools import groupby
+from response_generator import resp
+import time
 
-Main Function of the code:
--Online Talk Assistant. 
--Has memory system to recognize known users. 
--Built-in hand detection that recognizes ASL to understand input from mute/deaf users. 
--Generates responses and does simple tasks for the user on their computer.
--Simple tasks include searching the internet, browsing websites, answering questions.
-*Program is limited in terms of processing power and input limitations due to the useage of Open Ai's API.
-This company has a free trial of their API which allows the code to work for a set amount of runs. 
-Getting more inputs will require the use of real-world currency which, for me, is limited.
-Future implementations will have no limit once a stable system for responses is added.*
-'''
+cap = cv.VideoCapture(0)
+detector = hand_detector(maxHands=1)
+classifier = main_func_classifier("detection_model/keras_model.h5", "detection_model/labels.txt")
 
-# Import OpenCV library for computer vision tasks
-import cv2
-# Import Tkinter library for creating graphical user interfaces
-from tkinter import *
-# Import Image and ImageTk classes from PIL library for working with images
-from PIL import Image, ImageTk
-# Import custom hand_detection function for detecting hands in images
-from hand_detection import hand_detection
-# Import custom listen function for transcribing audio input to text
-from audio_to_text import listen
+offset = 20
+imgSize = 224
 
-# Set up video capture using OpenCV
-# 0 indicates that the default camera should be used
-cap = cv2.VideoCapture(0)
-# Set the width and height of the video capture
-cap.set(cv2.CAP_PROP_FRAME_WIDTH, 1080)
-cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 1080)
+text_list = []
+labels = ["A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z","Done"]
 
-# Get the width and height of the video capture
-width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+def respond(text):
+    min_count = 6
+    string = []
+    current_num = text[0]
+    current_count = 0
+    for num in text:
+        if num == current_num: current_count += 1
+        else:
+            if current_count >= min_count:
+                string.extend([current_num] * current_count)
+            current_num = num
+            current_count = 1
+    if current_count >= min_count: string.extend([current_num] * current_count)
+    user_input = ''.join(char for char, _ in groupby(string))
+    response = resp(user_input)
+    print(f'Input: {user_input} \n Response: {response}')
+    time.sleep(3)
 
-# Set up the main window using Tkinter
-window = Tk()
-# Set the title of the window
-window.title("Live Video Input with Hand Detection, Facial Detection, and Audio to Text Conversion")
-# Set the size of the window to be 1.25 times larger than the video capture dimensions
-window.geometry(f"{int(width*1.25)}x{int(height*1.25)}")
+def main():
+    while True:
+        success, img = cap.read()
+        img = cv.flip(img,1)
+        imgOutput = img.copy()
+        hands, img = detector.findHands(img)
+        if hands:
+            hand = hands[0]
+            x, y, w, h = hand['bbox']
 
-# Set up a canvas within the window to display elements
-canvas = Canvas(window, width=int(width*1.25), height=int(height*1.25))
-canvas.pack()
+            imgWhite = np.ones((imgSize, imgSize, 3), np.uint8) * 255
+            imgCrop = img[y - offset:y + h + offset, x - offset:x + w + offset]
 
-# Set up a label within the canvas to display the video capture
-label = Label(canvas)
-label.place(relx=0.125, rely=0.1, relwidth=0.75, relheight=0.8)
+            imgCropShape = imgCrop.shape
 
-# Set up a label within the canvas to display text from audio input
-text_label = Label(canvas, font=("Helvetica", 16))
-text_label.place(relx=0.125, rely=0, relwidth=0.75, relheight=0.1)
+            aspectRatio = h / w
 
-# Function to show a frame from the video capture on the label
-def show_frame():
-    # Read a frame from the video capture
-    _, frame = cap.read()
-    # Apply hand detection to the frame using a custom function
-    frame = hand_detection(frame)
-    # Flip the frame horizontally so that it appears as a mirror image
-    frame = cv2.flip(frame, 1)
-    # Convert the frame from a NumPy array to a PIL Image
-    img = Image.fromarray(frame)
-    # Convert the PIL Image to a Tkinter PhotoImage
-    imgtk = ImageTk.PhotoImage(image=img)
-    # Update the label with the new PhotoImage
-    label.imgtk = imgtk
-    label.configure(image=imgtk)
-    # Call this function again after 10ms to update with a new frame
-    label.after(10, show_frame)
+            if aspectRatio > 1:
+                try:
+                    k = imgSize / h
+                    wCal = math.ceil(k * w)
+                    imgResize = cv.resize(imgCrop, (wCal, imgSize))
+                    imgResizeShape = imgResize.shape
+                    wGap = math.ceil((imgSize - wCal) / 2)
+                    imgWhite[:, wGap:wCal + wGap] = imgResize
+                    prediction, index = classifier.getPrediction(imgWhite, draw=False)
+                    if index == 26:
+                        respond(text_list)
+                except:
+                    continue
 
-# Function to listen for audio input and update text label with transcription
-def on_listen():
-    # Call custom listen function and pass in text label as argument
-    listen(text_label)
-    # Update window to show changes to text label
-    window.update_idletasks()
+            else:
+                try:
+                    k = imgSize / w
+                    hCal = math.ceil(k * h)
+                    imgResize = cv.resize(imgCrop, (imgSize, hCal))
+                    imgResizeShape = imgResize.shape
+                    hGap = math.ceil((imgSize - hCal) / 2)
+                    imgWhite[hGap:hCal + hGap, :] = imgResize
+                    prediction, index = classifier.getPrediction(imgWhite, draw=False)
+                    if index == 26:
+                        respond(text_list)
+                except:
+                    continue
+            
+            text_list.append(labels[index])
 
-# Set up a button within the canvas to trigger listening for audio input
-button = Button(canvas, text="Listen", command=on_listen, font=("Helvetica", 16), bg="black", fg="white")
-button.place(relx=0.375, rely=0.9, relwidth=0.25, relheight=0.1)
+            cv.rectangle(imgOutput, (x - offset, y - offset-50),
+                        (x - offset+90, y - offset-50+50), (0, 0, 0), cv.FILLED)
+            cv.putText(imgOutput, labels[index], (x, y -26), cv.FONT_HERSHEY_COMPLEX, 1.7, (255, 255, 255), 2)
+            cv.rectangle(imgOutput, (x-offset, y-offset),
+                        (x + w+offset, y + h+offset), (0, 0, 0), 4)
 
-# Start showing frames from video capture on label
-show_frame()
-# Run main loop of window to keep it open and responsive to user input
-window.mainloop()
+        cv.imshow("Image", imgOutput)
+        key = cv.waitKey(1)
+        if key == 27:
+            break
+    return
+
+main()
+cv.destroyAllWindows()
